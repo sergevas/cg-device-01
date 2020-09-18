@@ -1,6 +1,10 @@
 #include <ESP8266WiFi.h>
 #include <BME280.h>
 
+
+const int SDA_PIN = 2;
+const int SCL_PIN = 14;
+
 BME280 rbfmiotBme280;
 
 char macAddr[12];
