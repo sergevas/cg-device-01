@@ -1,9 +1,8 @@
 #include <ESP8266WiFi.h>
 #include <BME280.h>
 
-
-const int SDA_PIN = 2;
-const int SCL_PIN = 14;
+const int SDA_PIN = 4; // D2 of WeMos D1 Mini
+const int SCL_PIN = 5; // D1 of WeMos D1 Mini
 
 BME280 rbfmiotBme280;
 

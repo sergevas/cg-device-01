@@ -1,25 +1,25 @@
-#include "BME280.h"
+#include "SergeVas_dev_BME280.h"
 
 BME280::BME280()
 {
-  i2cAddr = I2C_ADDR_76;
+  _i2cAddr = I2C_ADDR_76;
 }
 
-BME280::BME280(int8_t anI2cAddr)
+BME280::BME280(int8_t an_i2cAddr)
 {
-  i2cAddr = anI2cAddr;
+  _i2cAddr = an_i2cAddr;
 }
 
 void BME280::configure(int sDApin, int sCLpin)
 {
   Wire.begin(sDApin, sCLpin);
   initForcedMode();
-  tp = readTrimmParams();
+  _tp = readTrimmParams();
 }
 
 void BME280::write(uint8_t regAddr, uint8_t data)
 {
-  Wire.beginTransmission(i2cAddr);
+  Wire.beginTransmission(_i2cAddr);
   Wire.write(regAddr);
   Wire.write(data);
   Wire.endTransmission();
@@ -31,20 +31,20 @@ void BME280::initForcedMode()
   uint8_t ctrl_hum;
   write(CTRL_MEAS_ADDR, MODE_SLEEP);
   confg = IIR_FILTER_OFF << 2 | SPI_OFF;
-  ctrl_meas = OSRS_T_1 << 5 | OSRS_P_1 << 2 | MODE_FORCED;
+  _ctrl_meas = OSRS_T_1 << 5 | OSRS_P_1 << 2 | MODE_FORCED;
   ctrl_hum = OSRS_H_1;
   write(CONFG_ADDR, confg);
   write(CTRL_HUM_ADDR, ctrl_hum);
-  write(CTRL_MEAS_ADDR, ctrl_meas);
+  write(CTRL_MEAS_ADDR, _ctrl_meas);
 }
 
 void BME280::readId(int8_t *id)
 {
   *id = -1; // id is unavailable
-  Wire.beginTransmission(i2cAddr);
+  Wire.beginTransmission(_i2cAddr);
   Wire.write(ID_ADDR);
   Wire.endTransmission();
-  Wire.requestFrom(i2cAddr, 1);
+  Wire.requestFrom(_i2cAddr, 1);
   if (Wire.available())
   {
     *id = Wire.read();
@@ -57,27 +57,27 @@ TrimmParams BME280::readTrimmParams()
   TrimmParams trimmParams;
   uint8_t trimmParamsArray[32];
   int trimmParamsArrayCount = 0;
-  Wire.beginTransmission(i2cAddr);
+  Wire.beginTransmission(_i2cAddr);
   Wire.write(DIG_T1_ADDR);
   Wire.endTransmission();
-  Wire.requestFrom(i2cAddr, 24);
+  Wire.requestFrom(_i2cAddr, 24);
   while (Wire.available())
   {
     trimmParamsArray[trimmParamsArrayCount] = Wire.read();
     trimmParamsArrayCount++;
   }
   Wire.endTransmission();
-  Wire.beginTransmission(i2cAddr);
+  Wire.beginTransmission(_i2cAddr);
   Wire.write(DIG_H1_ADDR);
   Wire.endTransmission();
-  Wire.requestFrom(i2cAddr, 1);
+  Wire.requestFrom(_i2cAddr, 1);
   trimmParamsArray[trimmParamsArrayCount] = Wire.read();
   trimmParamsArrayCount++;
   Wire.endTransmission();
-  Wire.beginTransmission(i2cAddr);
+  Wire.beginTransmission(_i2cAddr);
   Wire.write(DIG_H2_ADDR);
   Wire.endTransmission();
-  Wire.requestFrom(i2cAddr, 7);
+  Wire.requestFrom(_i2cAddr, 7);
   while (Wire.available())
   {
     trimmParamsArray[trimmParamsArrayCount] = Wire.read();
@@ -110,10 +110,10 @@ RawData BME280::burstRead()
   RawData rawData;
   uint8_t rawDataArray[8];
   int rawDataArrayCount = 0;
-  Wire.beginTransmission(i2cAddr);
+  Wire.beginTransmission(_i2cAddr);
   Wire.write(PRES_MSB_ADDR);
   Wire.endTransmission();
-  Wire.requestFrom(i2cAddr, 8);
+  Wire.requestFrom(_i2cAddr, 8);
   while (Wire.available())
   {
     rawDataArray[rawDataArrayCount] = Wire.read();
@@ -197,9 +197,9 @@ void BME280::readAll(double *temperature, double *pressure, double *humidity)
   RawData rd;
   int32_t fineTemp;
   rd = burstRead();
-  fineTemp = getFineTemp(rd, tp);
+  fineTemp = getFineTemp(rd, _tp);
   *temperature = getTemperature(compensateTemp(fineTemp));
-  *pressure = getPressure(compensatePressure(rd, tp, fineTemp));
-  *humidity = getHumidity(compensateHumidity(rd, tp, fineTemp));
-  write(CTRL_MEAS_ADDR, ctrl_meas);
+  *pressure = getPressure(compensatePressure(rd, _tp, fineTemp));
+  *humidity = getHumidity(compensateHumidity(rd, _tp, fineTemp));
+  write(CTRL_MEAS_ADDR, _ctrl_meas);
 }
