@@ -3,7 +3,7 @@
 #include <SergeVas_dev_BME280.h>
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
-
+#include <ESP8266WebServer.h>
 
 const int SDA_PIN = 4;  // D2 of WeMos D1 Mini
 const int SCL_PIN = 5; // D1 of WeMos D1 Mini
@@ -12,23 +12,13 @@ const char* WIFI_SSID = "IoT";
 const char* WIFI_PASSWORD = "VeryL0ngPas$wd!2015";
 const int WIFI_NUM_OF_RETRIES = 20;
 
-char* NATS_SERVER_NAME="192.168.1.70";
-int NATS_SERVER_PORT = 4222;
-char* NATS_USER_NAME = "cgUser";
-char* NATS_PASSWORD = "cgPasswd";
+ESP8266WebServer server(80);
 
 BME280 rbfmiotBme280(I2C_ADDR_76);
 int8_t id;
 
 char macAddr[12];
 WiFiClient client;
-NATS nats(
-  &client,
-  NATS_SERVER_NAME,
-  NATS_DEFAULT_PORT,
-  NATS_USER_NAME,
-  NATS_PASSWORD
-);
 
 String dToS(double aVal) {
   return String(aVal, 2);
@@ -36,6 +26,35 @@ String dToS(double aVal) {
 
 String iToS(int8_t aVal) {
   return String(aVal, 2);
+}
+
+void handleRoot() {
+  double temp, pres, hum;
+  rbfmiotBme280.readAll(&temp, &pres, &hum);
+  
+  String replyMsg = "{\"id\":" + iToS(id)
+    + ", \"temp\":" + dToS(temp)
+    + ", \"pres\":" + dToS(pres)
+    + ", \"hum\":" + dToS(hum) + "}";
+    
+  server.send(200, "application/json", "");
+}
+
+void handleNotFound() {
+  digitalWrite(led, 1);
+  String message = "File Not Found\n\n";
+  message += "URI: ";
+  message += server.uri();
+  message += "\nMethod: ";
+  message += (server.method() == HTTP_GET) ? "GET" : "POST";
+  message += "\nArguments: ";
+  message += server.args();
+  message += "\n";
+  for (uint8_t i = 0; i < server.args(); i++) {
+    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
+  }
+  server.send(404, "text/plain", message);
+  digitalWrite(led, 0);
 }
 
 //char* sToC(String aVal) {
@@ -79,23 +98,6 @@ void initWiFi() {
   Serial.println("WiFi connect complete...");
 }
 
-void nats_on_connect() {
-  String subject = "cg/" + readMACaddr();
-  nats.subscribe(subject, nats_handler);
-}
-
-void nats_handler(NATS::msg msg) {
-  double temp, pres, hum;
-  rbfmiotBme280.readAll(&temp, &pres, &hum);
-  
-  String replyMsg = "{\"id\":" + iToS(id)
-    + ", \"temp\":" + dToS(temp)
-    + ", \"pres\":" + dToS(pres)
-    + ", \"hum\":" + dToS(hum) + "}";
-    
-  nats.publish(msg.reply, replyMsg);
-}
-
 void setup() {
   Serial.begin(115200);
   Serial.println();
@@ -111,14 +113,20 @@ void setup() {
   Serial.println("Reading device id complete...");
   readMACaddr(macAddr);
   Serial.println(macAddr);
-  nats.on_connect = nats_on_connect;
-  nats.connect(); 
+  initWiFi();
+  if (MDNS.begin("esp8266")) {
+    Serial.println("MDNS responder started");
+  }
+  server.on("/", handleRoot);
+  server.onNotFound(handleNotFound);
+  server.begin();
+  Serial.println("HTTP server started");
 }
 
 void loop() {
   if (WiFi.status() != WL_CONNECTED) {
     initWiFi();
   }
-  nats.process();
-  yield();
+  server.handleClient();
+  MDNS.update();
 }
